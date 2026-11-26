@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 import os
+import plistlib
 import re
 import subprocess
 import sys
@@ -16,6 +17,7 @@ import urllib.parse
 import urllib.request
 from datetime import date, datetime
 from pathlib import Path
+from typing import Optional
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
@@ -24,6 +26,8 @@ TASK_MANAGER = ROOT / "zentao-task-manager" / "scripts" / "zentao_task_manager.p
 CONFIG_DIR = Path(os.environ.get("ZENTAO11_CONFIG_DIR", Path.home() / ".config" / "zentao11"))
 DINGTALK_FILE = CONFIG_DIR / "dingtalk.json"
 CREDENTIALS_FILE = CONFIG_DIR / "credentials.json"
+KEYCHAIN_SERVICE = "com.ihr360.zentao11.remind"
+LAUNCHD_LABEL = "com.ihr360.zentao11.remind"
 DEADLINE_DAYS = 2
 TASK_COMPLETED = {"done", "closed", "cancel", "已完成", "已关闭", "已取消"}
 BUG_COMPLETED = {"closed", "已关闭"}
@@ -76,6 +80,40 @@ def _dpapi_unprotect(value: str) -> str:
         _LOCAL_FREE(out.pbData)
 
 
+def _keychain_store(account: str, password: str, service: str = KEYCHAIN_SERVICE) -> None:
+    """Store a password in the current macOS user's login keychain."""
+    if sys.platform != "darwin":
+        raise RuntimeError("macOS Keychain 只支持在 macOS 上使用")
+    result = subprocess.run(
+        [
+            "security",
+            "add-generic-password",
+            "-a",
+            account,
+            "-s",
+            service,
+            "-w",
+            password,
+            "-U",
+        ],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(decode(result.stderr or result.stdout).strip() or "写入 macOS Keychain 失败")
+
+
+def _keychain_read(account: str, service: str = KEYCHAIN_SERVICE) -> str:
+    if sys.platform != "darwin":
+        raise RuntimeError("macOS Keychain 只支持在 macOS 上使用")
+    result = subprocess.run(
+        ["security", "find-generic-password", "-a", account, "-s", service, "-w"],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(decode(result.stderr or result.stdout).strip() or "读取 macOS Keychain 失败")
+    return decode(result.stdout).rstrip("\r\n")
+
+
 class _DATA_BLOB(ctypes.Structure):
     _fields_ = [("cbData", ctypes.c_ulong), ("pbData", ctypes.POINTER(ctypes.c_char))]
 
@@ -114,13 +152,16 @@ def credentials() -> dict:
     encrypted = str(value.get("password_dpapi") or "")
     if encrypted:
         password = _dpapi_unprotect(encrypted)
+    elif value.get("password_keychain"):
+        keychain_account = str(value.get("keychain_account") or account)
+        password = _keychain_read(keychain_account, str(value.get("password_keychain")))
     elif value.get("password"):
         # Read legacy configs, but do not create new plaintext credentials.
         password = str(value.get("password"))
     if not server or not account or not password:
         raise RuntimeError(
             "禅道会话已失效且未找到本机凭据。请运行 "
-            f"py -3 -X utf8 -B {Path(__file__).name} setup，或先手动执行 zentao11 login -u 账号"
+            f"{_python_name()} -X utf8 -B {Path(__file__).name} setup，或先手动执行 zentao11 login -u 账号"
         )
     return {"server": server, "account": account, "password": password}
 
@@ -411,7 +452,11 @@ def build_message():
     return text, {"tasks": len(tasks), "bugs": len(bugs), "account": account}
 
 
-def create_schedule():
+def _python_name() -> str:
+    return "py -3" if os.name == "nt" else "python3"
+
+
+def _create_windows_schedule() -> Path:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     cmd_path = CONFIG_DIR / "remind.cmd"
     config_path = str(CONFIG_DIR)
@@ -447,6 +492,74 @@ def create_schedule():
     return cmd_path
 
 
+def _write_launchd_plist(launch_agents: Optional[Path] = None) -> Path:
+    launch_agents = launch_agents or (Path.home() / "Library" / "LaunchAgents")
+    launch_agents.mkdir(parents=True, exist_ok=True)
+    plist_path = launch_agents / f"{LAUNCHD_LABEL}.plist"
+    log_path = str(CONFIG_DIR / "remind.log")
+    error_log_path = str(CONFIG_DIR / "remind-error.log")
+    payload = {
+        "Label": LAUNCHD_LABEL,
+        "ProgramArguments": [
+            str(Path(sys.executable).resolve()),
+            "-X",
+            "utf8",
+            "-B",
+            str(Path(__file__).resolve()),
+            "send",
+        ],
+        "EnvironmentVariables": {"ZENTAO11_CONFIG_DIR": str(CONFIG_DIR)},
+        "StartCalendarInterval": {"Hour": 10, "Minute": 0},
+        "StandardOutPath": log_path,
+        "StandardErrorPath": error_log_path,
+    }
+    plist_path.write_bytes(plistlib.dumps(payload, sort_keys=False))
+    os.chmod(plist_path, 0o600)
+    return plist_path
+
+
+def _create_macos_schedule() -> Path:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    plist_path = _write_launchd_plist()
+    domain = f"gui/{os.getuid()}"
+    subprocess.run(
+        ["launchctl", "bootout", domain, str(plist_path)],
+        capture_output=True,
+    )
+    result = subprocess.run(
+        ["launchctl", "bootstrap", domain, str(plist_path)],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(decode(result.stderr or result.stdout).strip() or "加载 launchd 定时任务失败")
+    return plist_path
+
+
+def create_schedule() -> Path:
+    if os.name == "nt":
+        return _create_windows_schedule()
+    if sys.platform == "darwin":
+        return _create_macos_schedule()
+    raise RuntimeError("定时提醒目前只支持 Windows 和 macOS")
+
+
+def _store_credentials(server: str, account: str, password: str) -> None:
+    if os.name == "nt":
+        value = {"server": server, "account": account, "password_dpapi": _dpapi_protect(password)}
+    elif sys.platform == "darwin":
+        keychain_account = f"{server}|{account}"
+        _keychain_store(keychain_account, password)
+        value = {
+            "server": server,
+            "account": account,
+            "password_keychain": KEYCHAIN_SERVICE,
+            "keychain_account": keychain_account,
+        }
+    else:
+        raise RuntimeError("自动保存禅道密码目前只支持 Windows 和 macOS")
+    write_private_json(CREDENTIALS_FILE, value)
+
+
 def setup() -> None:
     print("禅道钉钉提醒初始化。密码、Webhook 和密钥只保存到本机配置，不会输出。")
     existing = read_json(CREDENTIALS_FILE)
@@ -466,10 +579,7 @@ def setup() -> None:
     secret = getpass.getpass("钉钉机器人加签密钥（直接回车保留已有密钥）: ")
     secret = secret or str(existing_dingtalk.get("secret") or "").strip()
 
-    write_private_json(
-        CREDENTIALS_FILE,
-        {"server": server, "account": account, "password_dpapi": _dpapi_protect(password)},
-    )
+    _store_credentials(server, account, password)
     write_private_json(DINGTALK_FILE, {"webhook": webhook, "secret": secret})
     login_from_credentials()
     cmd_path = create_schedule()

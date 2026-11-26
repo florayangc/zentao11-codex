@@ -22,9 +22,9 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_SERVER = "https://zentao.ihr360.com/zentao"
-UA = "zentao11-cli/1.0"
+UA = "zentao11-cli/1.1"
 TIMEOUT = 30
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 BUG_STATUS = {"active": "激活", "resolved": "已解决", "closed": "已关闭"}
 STORY_STATUS = {"draft": "草稿", "active": "激活", "changed": "已变更", "closed": "已关闭"}

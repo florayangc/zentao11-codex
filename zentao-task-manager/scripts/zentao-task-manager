@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+codex_home=${CODEX_HOME:-"$HOME/.codex"}
+exec python3 -X utf8 -B "$codex_home/skills/zentao-task-manager/scripts/zentao_task_manager.py" "$@"

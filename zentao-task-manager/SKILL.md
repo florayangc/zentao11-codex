@@ -7,19 +7,19 @@ description: "Manage iHR360 ZenTao tasks through the bundled web-session CLI. Us
 
 ## Overview
 
-Use the bundled script to query the current user's assigned tasks, close a task by ID, and create a task after matching existing ZenTao options. This skill reuses the `zentao11` session file at `%USERPROFILE%\.config\zentao11\session.json`; never ask the user to paste a password into chat.
+Use the bundled script to query the current user's assigned tasks, close a task by ID, and create a task after matching existing ZenTao options. This skill reuses the `zentao11` session file at `~/.config/zentao11/session.json`; never ask the user to paste a password into chat.
 
 ## Prerequisites
 
 Before querying or closing tasks, check login status:
 
-```powershell
-py -3 "$env:USERPROFILE\.codex\skills\zentao-task-manager\scripts\zentao_task_manager.py" status
+```shell
+zentao-task-manager status
 ```
 
 If not logged in, stop and tell the user to run the original login command locally:
 
-```powershell
+```shell
 zentao11 login -u USER_ACCOUNT
 ```
 
@@ -27,25 +27,23 @@ Do not use official `zentao-cli` or REST API 2.0. The company instance is ZenTao
 
 公司常用检查命令：
 
-```powershell
-py -3 -B zentao11\scripts\zentao11.py login -u 账号
-py -3 -B zentao11\scripts\zentao11.py status
-py -3 -B zentao11\scripts\zentao11.py task --list --type assignedTo --format json --limit 200
-py -3 -B zentao11\scripts\zentao11.py bug --list --type assignedTo --format json --limit 200
+```shell
+zentao11 login -u 账号
+zentao11 status
+zentao11 task --list --type assignedTo --format json --limit 200
+zentao11 bug --list --type assignedTo --format json --limit 200
 ```
 
 个人禅道每条命令前设置：
 
-```powershell
-$env:ZENTAO11_CONFIG_DIR="$env:USERPROFILE\.config\zentao11-private"
-```
+Windows PowerShell 使用 `$env:ZENTAO11_CONFIG_DIR="$HOME\.config\zentao11-private"`；macOS shell 使用 `export ZENTAO11_CONFIG_DIR="$HOME/.config/zentao11-private"`。
 
 ## List Tasks
 
 When the user asks for current tasks or task deadline countdowns, run:
 
-```powershell
-py -3 "$env:USERPROFILE\.codex\skills\zentao-task-manager\scripts\zentao_task_manager.py" list --format json
+```shell
+zentao-task-manager list --format json
 ```
 
 Return a concise Chinese summary using these columns exactly: `ID`, `P`, `所属迭代`, `任务名称`, `创建`, `指派`, `由谁完成`, `预计`, `消耗`, `剩余`, `截止`, `状态`, `剩余天数`. Interpret negative `剩余天数` as overdue, zero as due today, and positive values as days remaining.
@@ -67,27 +65,27 @@ When the user asks to close a task, first inspect the task detail. The operation
 
 The draft is the confirmation popup in the CLI workflow:
 
-```powershell
-py -3 "$env:USERPROFILE\.codex\skills\zentao-task-manager\scripts\zentao_task_manager.py" close TASK_ID --dry-run --format json
+```shell
+zentao-task-manager close TASK_ID --dry-run --format json
 ```
 
 After the user explicitly confirms the displayed completion hours and next action, submit:
 
-```powershell
-py -3 "$env:USERPROFILE\.codex\skills\zentao-task-manager\scripts\zentao_task_manager.py" close TASK_ID --yes --format json
+```shell
+zentao-task-manager close TASK_ID --yes --format json
 ```
 
 Override the default completion hours only when the user gives a different value:
 
-```powershell
-py -3 "$env:USERPROFILE\.codex\skills\zentao-task-manager\scripts\zentao_task_manager.py" close TASK_ID --consumed 3 --yes --format json
+```shell
+zentao-task-manager close TASK_ID --consumed 3 --yes --format json
 ```
 
 To complete without a close request, use:
 
-```powershell
-py -3 "$env:USERPROFILE\.codex\skills\zentao-task-manager\scripts\zentao_task_manager.py" finish TASK_ID --dry-run --format json
-py -3 "$env:USERPROFILE\.codex\skills\zentao-task-manager\scripts\zentao_task_manager.py" finish TASK_ID --yes --format json
+```shell
+zentao-task-manager finish TASK_ID --dry-run --format json
+zentao-task-manager finish TASK_ID --yes --format json
 ```
 
 ## Create Task
@@ -100,14 +98,14 @@ Match these fields only against existing ZenTao options: `所属迭代`, `任务
 
 Draft command:
 
-```powershell
-py -3 "$env:USERPROFILE\.codex\skills\zentao-task-manager\scripts\zentao_task_manager.py" create-draft --execution "迭代名称或ID" --type "任务类型" --module "模块" --assigned-to "用户" --story "需求" --name "任务名称" --desc "任务描述" --estimate 2 --est-started 2026-09-04 --deadline 2026-09-05 --format json
+```shell
+zentao-task-manager create-draft --execution "迭代名称或ID" --type "任务类型" --module "模块" --assigned-to "用户" --story "需求" --name "任务名称" --desc "任务描述" --estimate 2 --est-started 2026-09-04 --deadline 2026-09-05 --format json
 ```
 
 Confirmed submit command:
 
-```powershell
-py -3 "$env:USERPROFILE\.codex\skills\zentao-task-manager\scripts\zentao_task_manager.py" create --execution "迭代名称或ID" --type "任务类型" --module "模块" --assigned-to "用户" --story "需求" --name "任务名称" --desc "任务描述" --estimate 2 --est-started 2026-09-04 --deadline 2026-09-05 --yes --format json
+```shell
+zentao-task-manager create --execution "迭代名称或ID" --type "任务类型" --module "模块" --assigned-to "用户" --story "需求" --name "任务名称" --desc "任务描述" --estimate 2 --est-started 2026-09-04 --deadline 2026-09-05 --yes --format json
 ```
 
 Use `--dry-run` with `create` for a non-mutating validation of the final payload.
@@ -132,15 +130,13 @@ The Wiki slash flow is intentionally non-mutating for this skill package. It may
 
 ## 钉钉提醒
 
-提醒范围是“指派给当前登录人且未关闭”。Bug 的 `resolved` 状态仍属于未关闭；已逾期项目进入全部待办，同时单独提醒截止日前 2 天至今天（含今天）的项目。每天 10:00 通过 Windows 任务计划发送一条钉钉消息。
+提醒范围是“指派给当前登录人且未关闭”。Bug 的 `resolved` 状态仍属于未关闭；已逾期项目进入全部待办，同时单独提醒截止日前 2 天至今天（含今天）的项目。每天 10:00 发送一条钉钉消息：Windows 使用任务计划程序，macOS 使用 `launchd`。
 
 首次配置可在项目根目录运行：
 
-```powershell
-py -3 -X utf8 -B zentao11\scripts\zentao_remind.py setup
-```
+Windows 运行 `py -3 -X utf8 -B "$HOME\.codex\skills\zentao11\scripts\zentao_remind.py" setup`；macOS 运行 `python3 -X utf8 -B "$HOME/.codex/skills/zentao11/scripts/zentao_remind.py" setup`。
 
-`setup` 会在本机配置目录保存禅道凭据和钉钉机器人配置、创建 `ZentaoDingTalkRemind` 计划任务并立即发送一条测试提醒。钉钉自定义机器人只能发群消息；要发给自己，需要建立自己的群并添加机器人。密码、Webhook 和密钥禁止进入对话或仓库。
+`setup` 会使用 Windows DPAPI 或 macOS Keychain 保存禅道密码，在本机配置目录保存钉钉机器人配置，创建系统定时任务并立即发送一条测试提醒。钉钉自定义机器人只能发群消息；要发给自己，需要建立自己的群并添加机器人。密码、Webhook 和密钥禁止进入对话或仓库。
 
 ## Resources
 

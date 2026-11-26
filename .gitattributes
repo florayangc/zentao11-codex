@@ -1,0 +1,3 @@
+*.sh text eol=lf
+zentao11/scripts/zentao11 text eol=lf
+zentao-task-manager/scripts/zentao-task-manager text eol=lf

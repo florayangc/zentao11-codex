@@ -1,6 +1,8 @@
 # zentao11 Installation Package
 
-When the user asks to install this package on Windows, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1` from this directory. Verify that the installer reports CLI version `1.0.0`.
+Install from this directory with the platform installer:
 
-The installer copies only the bundled skill. Keep each user's session in `%USERPROFILE%\.config\zentao11`; never copy a session file between users. After installation, tell the user to open a new Codex task or restart Codex, then run `zentao11 login -u THEIR_ACCOUNT` in their own terminal.
+- Windows: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1`
+- macOS: `chmod +x ./install.sh && ./install.sh`
 
+Verify that the installer reports CLI version `1.1.0`. Keep each user's session in `~/.config/zentao11`; never copy credentials or session files between users. After installation, tell the user to open a new Codex task or restart Codex, then run `zentao11 login -u THEIR_ACCOUNT` in their own terminal.

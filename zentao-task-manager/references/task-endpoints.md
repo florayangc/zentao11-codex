@@ -11,7 +11,7 @@ https://zentao.ihr360.com/zentao
 Session file:
 
 ```text
-%USERPROFILE%\.config\zentao11\session.json
+~/.config/zentao11/session.json
 ```
 
 Relevant PATH_INFO endpoints:

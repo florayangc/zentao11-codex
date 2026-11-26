@@ -9,11 +9,11 @@ description: "Query iHR360 ZenTao 11.3 (禅道) via a local web-session CLI. Use
 
 ## 登录
 
-会话保存在 `%USERPROFILE%\.config\zentao11\session.json`。密码不要出现在对话里。
+会话保存在 `~/.config/zentao11/session.json`。密码不要出现在对话里。
 
 未登录时让用户在自己的终端执行：
 
-```powershell
+```shell
 zentao11 login -u 你的账号
 ```
 
@@ -21,31 +21,20 @@ zentao11 login -u 你的账号
 
 常用命令：
 
-```powershell
-py -3 -B zentao11\scripts\zentao11.py login -u 账号
-py -3 -B zentao11\scripts\zentao11.py status
-py -3 -B zentao11\scripts\zentao11.py task --list --type assignedTo --format json --limit 200
-py -3 -B zentao11\scripts\zentao11.py bug --list --type assignedTo --format json --limit 200
-py -3 -X utf8 -B zentao11\scripts\zentao_remind.py preview
-py -3 -X utf8 -B zentao11\scripts\zentao_remind.py send
-py -3 -X utf8 -B zentao11\scripts\zentao_remind.py schedule
+```shell
+zentao11 login -u 账号
+zentao11 status
+zentao11 task --list --type assignedTo --format json --limit 200
+zentao11 bug --list --type assignedTo --format json --limit 200
 ```
 
 个人禅道每条命令前设置：
 
-```powershell
-$env:ZENTAO11_CONFIG_DIR="$env:USERPROFILE\.config\zentao11-private"
-```
+Windows PowerShell 使用 `$env:ZENTAO11_CONFIG_DIR="$HOME\.config\zentao11-private"`；macOS shell 使用 `export ZENTAO11_CONFIG_DIR="$HOME/.config/zentao11-private"`。
 
 ## 命令
 
-脚本：
-
-```powershell
-python "$env:USERPROFILE\.codex\skills\zentao11\scripts\zentao11.py" <cmd>
-```
-
-若 PATH 已有 `zentao11`，直接用 `zentao11`。查询优先 `--format json`，再给用户中文摘要。
+使用安装器创建的 `zentao11 <cmd>` 命令。若 PATH 尚未刷新，Windows 直接运行 `python "$HOME\.codex\skills\zentao11\scripts\zentao11.py" <cmd>`，macOS 运行 `python3 "$HOME/.codex/skills/zentao11/scripts/zentao11.py" <cmd>`。查询优先 `--format json`，再给用户中文摘要。
 
 | 用户意图 | 命令 |
 | --- | --- |
@@ -84,12 +73,10 @@ PATH_INFO 细节见 [references/endpoints.md](references/endpoints.md)。
 
 ## 钉钉提醒
 
-提醒范围是“指派给当前登录人且未完成”。任务的 `done`/“已完成”、`closed`/“已关闭”和取消状态不再提醒；Bug 的 `resolved` 状态仍会提醒，直到关闭。已逾期项目进入全部待办，同时单独提醒截止日前 2 天至今天（含今天）的项目。每天 10:00 通过 Windows 任务计划发送一条钉钉消息。
+提醒范围是“指派给当前登录人且未完成”。任务的 `done`/“已完成”、`closed`/“已关闭”和取消状态不再提醒；Bug 的 `resolved` 状态仍会提醒，直到关闭。已逾期项目进入全部待办，同时单独提醒截止日前 2 天至今天（含今天）的项目。每天 10:00 发送一条钉钉消息：Windows 使用任务计划程序，macOS 使用 `launchd`。
 
 首次配置可在本项目目录运行：
 
-```powershell
-py -3 -X utf8 -B zentao11\scripts\zentao_remind.py setup
-```
+Windows 运行 `py -3 -X utf8 -B "$HOME\.codex\skills\zentao11\scripts\zentao_remind.py" setup`；macOS 运行 `python3 -X utf8 -B "$HOME/.codex/skills/zentao11/scripts/zentao_remind.py" setup`。
 
-`setup` 会在本机配置目录保存禅道凭据和钉钉机器人配置、创建 `ZentaoDingTalkRemind` 计划任务并立即发送一条测试提醒。钉钉自定义机器人只能发群消息；要发给自己，需要建立自己的群并添加机器人。密码、Webhook 和密钥禁止进入对话或仓库。
+`setup` 会使用 Windows DPAPI 或 macOS Keychain 保存禅道密码，在本机配置目录保存钉钉机器人配置，创建系统定时任务并立即发送一条测试提醒。钉钉自定义机器人只能发群消息；要发给自己，需要建立自己的群并添加机器人。密码、Webhook 和密钥禁止进入对话或仓库。
