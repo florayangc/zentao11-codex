@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.log
+
+# Local credentials and runtime configuration
+.env
+.env.*
+session.json
+dingtalk.json
+zentao-credentials.json
+
+# Local diagnostics and data exports
+zentao11/scripts/tmp_*.py
+zentao11/scripts/bug-*.json

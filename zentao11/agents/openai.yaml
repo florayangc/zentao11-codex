@@ -1,0 +1,7 @@
+interface:
+  display_name: "ZenTao 11"
+  short_description: "Query ZenTao 11.3 bugs, stories, and tasks."
+  default_prompt: "Use $zentao11 to look up a ZenTao bug, story, or task."
+
+policy:
+  allow_implicit_invocation: true

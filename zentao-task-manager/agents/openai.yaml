@@ -1,0 +1,4 @@
+interface:
+  display_name: "ZenTao Task Manager"
+  short_description: "Manage ZenTao tasks and simulate direct task creation from Wiki task tables."
+  default_prompt: "Use $zentao-task-manager. Treat `/项目名 Wiki链接` as a direct-create simulation: parse and validate all Wiki tasks and show what would be created without writing to ZenTao."
